@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>뷰델카라반펜션 예약현황</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            margin-bottom: 10px;
+        }
+        .control-buttons {
+            margin-bottom: 20px;
+        }
+        .control-buttons button {
+            padding: 8px 16px;
+            border-radius: 10px;
+            border: 1px solid #555;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .zone-title {
+            margin: 10px 0 5px 0;
+            font-weight: bold;
+        }
+        .zone-row {
+            margin-bottom: 15px;
+        }
+        .spot-btn {
+            padding: 20px 40px;
+            margin: 6px;
+            border-radius: 14px;
+            border: 2px solid #7d6be8;
+            cursor: pointer;
+            background-color: #f5f2ff;
+            font-size: 20px;
+            font-weight: bold;
+            min-width: 150px;
+            min-height: 60px;
+        }
+        .on {
+            background-color: #4caf50;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <h1>뷰델카라반펜션 예약현황</h1>
+
+    <div class="control-buttons">
+        <button onclick="setAll(true)">전부 온</button>
+        <button onclick="setAll(false)">전부 오프</button>
+    </div>
+
+    <div id="zones"></div>
+
+    <script>
+        const zoneData = {
+            "A": 6,
+            "B": 3,
+            "C": 8,
+            "D": 3,
+            "E": 9
+        };
+
+        const saved = JSON.parse(localStorage.getItem("reservationStatus") || "{}");
+
+        function createZones() {
+            const container = document.getElementById("zones");
+            container.innerHTML = "";
+
+            Object.keys(zoneData).forEach(zone => {
+                const count = zoneData[zone];
+                const zoneDiv = document.createElement("div");
+                zoneDiv.className = "zone-row";
+
+                const title = document.createElement("div");
+                title.className = "zone-title";
+                title.textContent = `${zone}구역`;
+                zoneDiv.appendChild(title);
+
+                for (let i = 1; i <= count; i++) {
+                    const key = `${zone}${i}`;
+                    const btn = document.createElement("button");
+                    btn.textContent = key;
+                    btn.className = "spot-btn";
+                    if (saved[key]) btn.classList.add("on");
+
+                    btn.onclick = () => toggleStatus(btn, key);
+                    zoneDiv.appendChild(btn);
+                }
+
+                container.appendChild(zoneDiv);
+            });
+        }
+
+        function toggleStatus(btn, key) {
+            btn.classList.toggle("on");
+            saved[key] = btn.classList.contains("on");
+            localStorage.setItem("reservationStatus", JSON.stringify(saved));
+        }
+
+        function setAll(state) {
+            Object.keys(zoneData).forEach(zone => {
+                const count = zoneData[zone];
+                for (let i = 1; i <= count; i++) {
+                    const key = `${zone}${i}`;
+                    saved[key] = state;
+                }
+            });
+
+            localStorage.setItem("reservationStatus", JSON.stringify(saved));
+            createZones();
+        }
+
+        createZones();
+    </script>
+</body>
+</html>
