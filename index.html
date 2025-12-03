@@ -23,16 +23,44 @@ h1 {
   cursor: pointer;
   margin-right: 10px;
 }
+.zone-selector {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f0f0f0;
+  border-radius: 10px;
+}
+.zone-selector button {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid #555;
+  cursor: pointer;
+  font-size: 14px;
+  margin-right: 10px;
+  margin-bottom: 10px;
+}
+.selected-zone {
+  background-color: #2196f3 !important;
+  color: white !important;
+}
+.action-buttons {
+  margin-bottom: 20px;
+}
+.action-buttons button {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid #555;
+  cursor: pointer;
+  font-size: 14px;
+  margin-right: 10px;
+}
 .zone-title {
   margin: 10px 0 5px 0;
   font-weight: bold;
   display: block;
+  font-size: 18px;
 }
 .zone-row {
   margin-bottom: 15px;
-}
-.zone-controls {
-  margin-bottom: 6px;
 }
 .spot-btn {
   padding: 10px 20px;
@@ -50,21 +78,17 @@ h1 {
   background-color: #4caf50;
   color: #fff;
 }
-.mode-btn, .zone-on-btn {
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid #555;
-  cursor: pointer;
-  font-size: 12px;
-  margin-right: 6px;
-}
 .mode-on {
   background-color: #ff9800;
   color: #fff;
 }
-.zone-on-on {
+.zone-reset-btn {
+  background-color: #f44336;
+  color: white;
+}
+.zone-on-btn {
   background-color: #4caf50;
-  color: #fff;
+  color: white;
 }
 </style>
 </head>
@@ -75,7 +99,19 @@ h1 {
   <button onclick="resetAll()">전체 초기화</button>
   <button onclick="setAll(true)">전부 켜기</button>
   <button onclick="setAll(false)">전부 끄기</button>
-  <button id="globalNoGuestBtn" onclick="toggleGlobalNoGuest()">손님없음</button>
+</div>
+
+<!-- 구역 선택 버튼들 -->
+<div class="zone-selector">
+  <div><strong>구역 선택:</strong></div>
+  <div id="zoneButtons"></div>
+</div>
+
+<!-- 액션 버튼들 -->
+<div class="action-buttons">
+  <button id="actionReset" onclick="performAction('reset')">초기화</button>
+  <button id="actionOn" onclick="performAction('on')">켜기</button>
+  <button id="actionNoGuest" onclick="performAction('noGuest')">손님없음</button>
 </div>
 
 <div id="zones"></div>
@@ -90,8 +126,50 @@ const zoneData = {
 };
 
 const saved = JSON.parse(localStorage.getItem("reservationStatus") || "{}");
-let globalNoGuestMode = false;
+let selectedZone = null;
 const zoneNoGuestMode = {};
+
+function createZoneButtons() {
+  const container = document.getElementById("zoneButtons");
+  container.innerHTML = "";
+  
+  Object.keys(zoneData).forEach(zone => {
+    const btn = document.createElement("button");
+    btn.textContent = `${zone}구역`;
+    btn.onclick = () => selectZone(zone, btn);
+    container.appendChild(btn);
+  });
+}
+
+function selectZone(zone, btn) {
+  // 모든 버튼 초기화
+  document.querySelectorAll('#zoneButtons button').forEach(b => {
+    b.classList.remove('selected-zone');
+  });
+  
+  // 선택된 버튼 하이라이트
+  btn.classList.add('selected-zone');
+  selectedZone = zone;
+}
+
+function performAction(action) {
+  if (!selectedZone) {
+    alert('구역을 먼저 선택해주세요!');
+    return;
+  }
+  
+  switch(action) {
+    case 'reset':
+      resetZone(selectedZone);
+      break;
+    case 'on':
+      setZoneOn(selectedZone);
+      break;
+    case 'noGuest':
+      toggleZoneNoGuest(selectedZone);
+      break;
+  }
+}
 
 function createZones() {
   const container = document.getElementById("zones");
@@ -106,40 +184,6 @@ function createZones() {
     title.className = "zone-title";
     title.textContent = `${zone}구역`;
     zoneDiv.appendChild(title);
-
-    const ctrlDiv = document.createElement("div");
-    ctrlDiv.className = "zone-controls";
-
-    // 구역별 켜기 버튼
-    const zoneOnBtn = document.createElement("button");
-    zoneOnBtn.textContent = "켜기";
-    zoneOnBtn.className = "zone-on-btn";
-    // 해당 구역 모든 자리가 on인지 확인
-    let allOn = true;
-    for (let i = 1; i <= count; i++) {
-      const state = saved[`${zone}${i}`] || {};
-      if (!state.on) {
-        allOn = false;
-        break;
-      }
-    }
-    if (allOn) {
-      zoneOnBtn.classList.add("zone-on-on");
-    }
-    zoneOnBtn.onclick = () => setZoneOn(zone, zoneOnBtn);
-    ctrlDiv.appendChild(zoneOnBtn);
-
-    // 구역별 손님없음 버튼
-    const zoneBtn = document.createElement("button");
-    zoneBtn.textContent = "손님없음";
-    zoneBtn.className = "mode-btn";
-    if (zoneNoGuestMode[zone]) {
-      zoneBtn.classList.add("mode-on");
-    }
-    zoneBtn.onclick = () => toggleZoneNoGuest(zone);
-    ctrlDiv.appendChild(zoneBtn);
-
-    zoneDiv.appendChild(ctrlDiv);
 
     for (let i = 1; i <= count; i++) {
       const key = `${zone}${i}`;
@@ -161,25 +205,35 @@ function createZones() {
 
     container.appendChild(zoneDiv);
   });
-
-  const globalBtn = document.getElementById("globalNoGuestBtn");
-  if (globalNoGuestMode) {
-    globalBtn.classList.add("mode-on");
-  } else {
-    globalBtn.classList.remove("mode-on");
-  }
 }
 
-// 구역별 켜기 함수
-function setZoneOn(zone, btn) {
+function resetZone(zone) {
   const count = zoneData[zone];
-  const allOn = btn.classList.contains("zone-on-on");
+  for (let i = 1; i <= count; i++) {
+    const key = `${zone}${i}`;
+    delete saved[key];
+  }
+  delete zoneNoGuestMode[zone];
+  localStorage.setItem("reservationStatus", JSON.stringify(saved));
+  createZones();
+}
+
+function setZoneOn(zone) {
+  const count = zoneData[zone];
+  let allOn = true;
+  for (let i = 1; i <= count; i++) {
+    const state = saved[`${zone}${i}`] || {};
+    if (!state.on) {
+      allOn = false;
+      break;
+    }
+  }
   
   for (let i = 1; i <= count; i++) {
     const key = `${zone}${i}`;
     const prev = saved[key] || { on: false, noGuest: false };
-    prev.on = !allOn; // 현재 상태 반대
-    prev.noGuest = false; // 손님없음 해제
+    prev.on = !allOn;
+    prev.noGuest = false;
     saved[key] = prev;
   }
   localStorage.setItem("reservationStatus", JSON.stringify(saved));
@@ -189,7 +243,7 @@ function setZoneOn(zone, btn) {
 function toggleStatus(btn, key, zone) {
   const state = saved[key] || { on: false, noGuest: false };
 
-  if ((globalNoGuestMode || zoneNoGuestMode[zone]) && !state.on) {
+  if (zoneNoGuestMode[zone] && !state.on) {
     const nowNoGuest = !state.noGuest;
     state.noGuest = nowNoGuest;
 
@@ -200,40 +254,13 @@ function toggleStatus(btn, key, zone) {
       btn.textContent = key;
       delete btn.dataset.noGuest;
     }
-  } else if (!globalNoGuestMode && !zoneNoGuestMode[zone]) {
+  } else if (!zoneNoGuestMode[zone]) {
     btn.classList.toggle("on");
     state.on = btn.classList.contains("on");
   }
 
   saved[key] = state;
   localStorage.setItem("reservationStatus", JSON.stringify(saved));
-}
-
-function setAll(state) {
-  Object.keys(zoneData).forEach(zone => {
-    const count = zoneData[zone];
-    for (let i = 1; i <= count; i++) {
-      const key = `${zone}${i}`;
-      const prev = saved[key] || { on: false, noGuest: false };
-      prev.on = state;
-      saved[key] = prev;
-    }
-  });
-  localStorage.setItem("reservationStatus", JSON.stringify(saved));
-  createZones();
-}
-
-function resetAll() {
-  localStorage.removeItem("reservationStatus");
-  Object.keys(saved).forEach(key => delete saved[key]);
-  globalNoGuestMode = false;
-  Object.keys(zoneNoGuestMode).forEach(zone => delete zoneNoGuestMode[zone]);
-  createZones();
-}
-
-function toggleGlobalNoGuest() {
-  globalNoGuestMode = !globalNoGuestMode;
-  createZones();
 }
 
 function toggleZoneNoGuest(zone) {
@@ -253,6 +280,33 @@ function toggleZoneNoGuest(zone) {
   createZones();
 }
 
+function setAll(state) {
+  Object.keys(zoneData).forEach(zone => {
+    const count = zoneData[zone];
+    for (let i = 1; i <= count; i++) {
+      const key = `${zone}${i}`;
+      const prev = saved[key] || { on: false, noGuest: false };
+      prev.on = state;
+      saved[key] = prev;
+    }
+  });
+  localStorage.setItem("reservationStatus", JSON.stringify(saved));
+  createZones();
+}
+
+function resetAll() {
+  localStorage.removeItem("reservationStatus");
+  Object.keys(saved).forEach(key => delete saved[key]);
+  Object.keys(zoneNoGuestMode).forEach(zone => delete zoneNoGuestMode[zone]);
+  selectedZone = null;
+  document.querySelectorAll('#zoneButtons button').forEach(b => {
+    b.classList.remove('selected-zone');
+  });
+  createZones();
+}
+
+// 초기화
+createZoneButtons();
 createZones();
 </script>
 </body>
