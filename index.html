@@ -1,123 +1,259 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>뷰델카라반펜션 예약현황</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            line-height: 1.6;
-        }
-        h1 {
-            margin-bottom: 10px;
-        }
-        .control-buttons {
-            margin-bottom: 20px;
-        }
-        .control-buttons button {
-            padding: 8px 16px;
-            border-radius: 10px;
-            border: 1px solid #555;
-            cursor: pointer;
-            margin-right: 10px;
-        }
-        .zone-title {
-            margin: 10px 0 5px 0;
-            font-weight: bold;
-        }
-        .zone-row {
-            margin-bottom: 15px;
-        }
-        .spot-btn {
-            padding: 20px 40px;
-            margin: 6px;
-            border-radius: 14px;
-            border: 2px solid #7d6be8;
-            cursor: pointer;
-            background-color: #f5f2ff;
-            font-size: 20px;
-            font-weight: bold;
-            min-width: 150px;
-            min-height: 60px;
-        }
-        .on {
-            background-color: #4caf50;
-            color: #fff;
-        }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>뷰델카라반펜션 예약현황</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+  line-height: 1.6;
+}
+h1 {
+  margin-bottom: 10px;
+}
+.control-buttons {
+  margin-bottom: 20px;
+}
+.control-buttons button {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid #555;
+  cursor: pointer;
+  margin-right: 10px;
+}
+.zone-title {
+  margin: 10px 0 5px 0;
+  font-weight: bold;
+  display: block;
+}
+.zone-row {
+  margin-bottom: 15px;
+}
+.zone-controls {
+  margin-bottom: 6px;
+}
+.spot-btn {
+  padding: 10px 20px;
+  margin: 4px;
+  border-radius: 10px;
+  border: 2px solid #7d6be8;
+  cursor: pointer;
+  background-color: #f5f2ff;
+  font-size: 14px;
+  font-weight: bold;
+  min-width: 75px;
+  min-height: 30px;
+}
+.on {
+  background-color: #4caf50;
+  color: #fff;
+}
+.mode-btn, .zone-on-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #555;
+  cursor: pointer;
+  font-size: 12px;
+  margin-right: 6px;
+}
+.mode-on {
+  background-color: #ff9800;
+  color: #fff;
+}
+.zone-on-on {
+  background-color: #4caf50;
+  color: #fff;
+}
+</style>
 </head>
 <body>
-    <h1>뷰델카라반펜션 예약현황</h1>
+<h1>뷰델카라반펜션 예약현황</h1>
 
-    <div class="control-buttons">
-        <button onclick="setAll(true)">전부 켜기</button>
-        <button onclick="setAll(false)">전부 끄기</button>
-    </div>
+<div class="control-buttons">
+  <button onclick="resetAll()">전체 초기화</button>
+  <button onclick="setAll(true)">전부 켜기</button>
+  <button onclick="setAll(false)">전부 끄기</button>
+  <button id="globalNoGuestBtn" onclick="toggleGlobalNoGuest()">손님없음</button>
+</div>
 
-    <div id="zones"></div>
+<div id="zones"></div>
 
-    <script>
-        const zoneData = {
-            "A": 6,
-            "B": 3,
-            "C": 8,
-            "D": 3,
-            "E": 9
-        };
+<script>
+const zoneData = {
+  "A": 6,
+  "B": 3,
+  "C": 8,
+  "D": 3,
+  "E": 9
+};
 
-        const saved = JSON.parse(localStorage.getItem("reservationStatus") || "{}");
+const saved = JSON.parse(localStorage.getItem("reservationStatus") || "{}");
+let globalNoGuestMode = false;
+const zoneNoGuestMode = {};
 
-        function createZones() {
-            const container = document.getElementById("zones");
-            container.innerHTML = "";
+function createZones() {
+  const container = document.getElementById("zones");
+  container.innerHTML = "";
 
-            Object.keys(zoneData).forEach(zone => {
-                const count = zoneData[zone];
-                const zoneDiv = document.createElement("div");
-                zoneDiv.className = "zone-row";
+  Object.keys(zoneData).forEach(zone => {
+    const count = zoneData[zone];
+    const zoneDiv = document.createElement("div");
+    zoneDiv.className = "zone-row";
 
-                const title = document.createElement("div");
-                title.className = "zone-title";
-                title.textContent = `${zone}구역`;
-                zoneDiv.appendChild(title);
+    const title = document.createElement("div");
+    title.className = "zone-title";
+    title.textContent = `${zone}구역`;
+    zoneDiv.appendChild(title);
 
-                for (let i = 1; i <= count; i++) {
-                    const key = `${zone}${i}`;
-                    const btn = document.createElement("button");
-                    btn.textContent = key;
-                    btn.className = "spot-btn";
-                    if (saved[key]) btn.classList.add("on");
+    const ctrlDiv = document.createElement("div");
+    ctrlDiv.className = "zone-controls";
 
-                    btn.onclick = () => toggleStatus(btn, key);
-                    zoneDiv.appendChild(btn);
-                }
+    // 구역별 켜기 버튼
+    const zoneOnBtn = document.createElement("button");
+    zoneOnBtn.textContent = "켜기";
+    zoneOnBtn.className = "zone-on-btn";
+    // 해당 구역 모든 자리가 on인지 확인
+    let allOn = true;
+    for (let i = 1; i <= count; i++) {
+      const state = saved[`${zone}${i}`] || {};
+      if (!state.on) {
+        allOn = false;
+        break;
+      }
+    }
+    if (allOn) {
+      zoneOnBtn.classList.add("zone-on-on");
+    }
+    zoneOnBtn.onclick = () => setZoneOn(zone, zoneOnBtn);
+    ctrlDiv.appendChild(zoneOnBtn);
 
-                container.appendChild(zoneDiv);
-            });
-        }
+    // 구역별 손님없음 버튼
+    const zoneBtn = document.createElement("button");
+    zoneBtn.textContent = "손님없음";
+    zoneBtn.className = "mode-btn";
+    if (zoneNoGuestMode[zone]) {
+      zoneBtn.classList.add("mode-on");
+    }
+    zoneBtn.onclick = () => toggleZoneNoGuest(zone);
+    ctrlDiv.appendChild(zoneBtn);
 
-        function toggleStatus(btn, key) {
-            btn.classList.toggle("on");
-            saved[key] = btn.classList.contains("on");
-            localStorage.setItem("reservationStatus", JSON.stringify(saved));
-        }
+    zoneDiv.appendChild(ctrlDiv);
 
-        function setAll(state) {
-            Object.keys(zoneData).forEach(zone => {
-                const count = zoneData[zone];
-                for (let i = 1; i <= count; i++) {
-                    const key = `${zone}${i}`;
-                    saved[key] = state;
-                }
-            });
+    for (let i = 1; i <= count; i++) {
+      const key = `${zone}${i}`;
+      const btn = document.createElement("button");
+      btn.className = "spot-btn";
 
-            localStorage.setItem("reservationStatus", JSON.stringify(saved));
-            createZones();
-        }
+      const state = saved[key] || {};
+      const isOn = !!state.on;
+      const isNoGuest = !!state.noGuest;
 
-        createZones();
-    </script>
+      btn.textContent = isNoGuest ? "손님없음" : key;
+
+      if (isOn) btn.classList.add("on");
+      if (isNoGuest) btn.dataset.noGuest = "true";
+
+      btn.onclick = () => toggleStatus(btn, key, zone);
+      zoneDiv.appendChild(btn);
+    }
+
+    container.appendChild(zoneDiv);
+  });
+
+  const globalBtn = document.getElementById("globalNoGuestBtn");
+  if (globalNoGuestMode) {
+    globalBtn.classList.add("mode-on");
+  } else {
+    globalBtn.classList.remove("mode-on");
+  }
+}
+
+// 구역별 켜기 함수
+function setZoneOn(zone, btn) {
+  const count = zoneData[zone];
+  const allOn = btn.classList.contains("zone-on-on");
+  
+  for (let i = 1; i <= count; i++) {
+    const key = `${zone}${i}`;
+    const prev = saved[key] || { on: false, noGuest: false };
+    prev.on = !allOn; // 현재 상태 반대
+    prev.noGuest = false; // 손님없음 해제
+    saved[key] = prev;
+  }
+  localStorage.setItem("reservationStatus", JSON.stringify(saved));
+  createZones();
+}
+
+function toggleStatus(btn, key, zone) {
+  const state = saved[key] || { on: false, noGuest: false };
+
+  if ((globalNoGuestMode || zoneNoGuestMode[zone]) && !state.on) {
+    const nowNoGuest = !state.noGuest;
+    state.noGuest = nowNoGuest;
+
+    if (nowNoGuest) {
+      btn.textContent = "손님없음";
+      btn.dataset.noGuest = "true";
+    } else {
+      btn.textContent = key;
+      delete btn.dataset.noGuest;
+    }
+  } else if (!globalNoGuestMode && !zoneNoGuestMode[zone]) {
+    btn.classList.toggle("on");
+    state.on = btn.classList.contains("on");
+  }
+
+  saved[key] = state;
+  localStorage.setItem("reservationStatus", JSON.stringify(saved));
+}
+
+function setAll(state) {
+  Object.keys(zoneData).forEach(zone => {
+    const count = zoneData[zone];
+    for (let i = 1; i <= count; i++) {
+      const key = `${zone}${i}`;
+      const prev = saved[key] || { on: false, noGuest: false };
+      prev.on = state;
+      saved[key] = prev;
+    }
+  });
+  localStorage.setItem("reservationStatus", JSON.stringify(saved));
+  createZones();
+}
+
+function resetAll() {
+  localStorage.removeItem("reservationStatus");
+  Object.keys(saved).forEach(key => delete saved[key]);
+  globalNoGuestMode = false;
+  Object.keys(zoneNoGuestMode).forEach(zone => delete zoneNoGuestMode[zone]);
+  createZones();
+}
+
+function toggleGlobalNoGuest() {
+  globalNoGuestMode = !globalNoGuestMode;
+  createZones();
+}
+
+function toggleZoneNoGuest(zone) {
+  const newState = !zoneNoGuestMode[zone];
+  zoneNoGuestMode[zone] = newState;
+
+  const count = zoneData[zone];
+  for (let i = 1; i <= count; i++) {
+    const key = `${zone}${i}`;
+    const prev = saved[key] || { on: false, noGuest: false };
+    if (!prev.on) {
+      prev.noGuest = newState;
+    }
+    saved[key] = prev;
+  }
+  localStorage.setItem("reservationStatus", JSON.stringify(saved));
+  createZones();
+}
+
+createZones();
+</script>
 </body>
 </html>
